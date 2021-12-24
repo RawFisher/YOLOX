@@ -239,10 +239,10 @@ class COCOEvaluator:
             precision_50 = precisions[0, :, cls_idx, 0, -1]
             ap = np.mean(precision) if precision.size else float("nan")
             ap_50 = np.mean(precision_50) if precision.size else float("nan")
-            results += 'Average Precision  (AP) @[ cls={:>15} | IoU=0.50:0.95 | area=   all | maxDets=100 ] = {:6.2f}\n'.format(
+            results += 'Average Precision  (AP) @[ cls={:>15} | IoU=0.50:0.95 | area=   all | maxDets=100 ] = {:6.1f}\n'.format(
                 classes[cls_idx], float(ap * 100)
             )
-            results += 'Average Precision  (AP) @[ cls={:>15} | IoU=0.50      | area=   all | maxDets=100 ] = {:6.2f}\n'.format(
+            results += 'Average Precision  (AP) @[ cls={:>15} | IoU=0.50      | area=   all | maxDets=100 ] = {:6.1f}\n'.format(
                 classes[cls_idx], float(ap_50 * 100)
             )
         return results
