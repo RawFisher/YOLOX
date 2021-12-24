@@ -12,6 +12,7 @@ from loguru import logger
 from tqdm import tqdm
 
 import torch
+import numpy as np
 
 from yolox.utils import (
     gather,
@@ -216,6 +217,32 @@ class COCOEvaluator:
             with contextlib.redirect_stdout(redirect_string):
                 cocoEval.summarize()
             info += redirect_string.getvalue()
+            info += self._get_per_class_evaluation(cocoEval.eval["precision"])
             return cocoEval.stats[0], cocoEval.stats[1], info
         else:
             return 0, 0, info
+
+    def _get_per_class_evaluation(self, precisions):
+        # Compute per-category AP
+        # from https://github.com/facebookresearch/detectron2/
+        # precision: (iou, recall, cls, area range, max dets)
+        class_num = precisions.shape[2]
+        results = ""
+        # print(self.dataloader.dataset.coco.cats)
+        classes = tuple([c["name"] for c in self.dataloader.dataset.coco.cats.values()])
+        for cls_idx in range(class_num):
+            # area range index 0: all area ranges
+            # max dets index -1: typically 100 per image
+            precision = precisions[:, :, cls_idx, 0, -1]
+            precision_50 = precisions[0, :, cls_idx, 0, -1]
+            precision = precision[precision > -1]
+            precision_50 = precisions[0, :, cls_idx, 0, -1]
+            ap = np.mean(precision) if precision.size else float("nan")
+            ap_50 = np.mean(precision_50) if precision.size else float("nan")
+            results += 'Average Precision  (AP) @[ cls={:>15} | IoU=0.50:0.95 | area=   all | maxDets=100 ] = {:6.2f}\n'.format(
+                classes[cls_idx], float(ap * 100)
+            )
+            results += 'Average Precision  (AP) @[ cls={:>15} | IoU=0.50      | area=   all | maxDets=100 ] = {:6.2f}\n'.format(
+                classes[cls_idx], float(ap_50 * 100)
+            )
+        return results
