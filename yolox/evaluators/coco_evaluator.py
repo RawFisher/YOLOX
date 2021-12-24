@@ -230,6 +230,7 @@ class COCOEvaluator:
         results = ""
         # print(self.dataloader.dataset.coco.cats)
         classes = tuple([c["name"] for c in self.dataloader.dataset.coco.cats.values()])
+        results += '| {:^15} | {:^15} | {:^15} |\n'.format("class", "AP(0.5:0.95)", "AP(0.5)")
         for cls_idx in range(class_num):
             # area range index 0: all area ranges
             # max dets index -1: typically 100 per image
@@ -239,10 +240,7 @@ class COCOEvaluator:
             precision_50 = precisions[0, :, cls_idx, 0, -1]
             ap = np.mean(precision) if precision.size else float("nan")
             ap_50 = np.mean(precision_50) if precision.size else float("nan")
-            results += 'Average Precision  (AP) @[ cls={:>15} | IoU=0.50:0.95 | area=   all | maxDets=100 ] = {:6.1f}\n'.format(
-                classes[cls_idx], float(ap * 100)
-            )
-            results += 'Average Precision  (AP) @[ cls={:>15} | IoU=0.50      | area=   all | maxDets=100 ] = {:6.1f}\n'.format(
-                classes[cls_idx], float(ap_50 * 100)
+            results += '| {:^15} | {:^15.1f} | {:^15.1f} |\n'.format(
+                classes[cls_idx], float(ap * 100), float(ap_50 * 100)
             )
         return results
