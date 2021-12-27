@@ -30,8 +30,6 @@ class SDCYOLOPAFPN(nn.Module):
         Conv = DWConv if depthwise else BaseConv
 
         self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
-        self.upsample_256 = nn.ConvTranspose2d(256, 256, 2, 2)
-        self.upsample_128 = nn.ConvTranspose2d(128, 128, 2, 2)
         self.lateral_conv0 = BaseConv(
             int(in_channels[2] * width), int(in_channels[1] * width), 1, 1, act=act
         )
@@ -97,14 +95,12 @@ class SDCYOLOPAFPN(nn.Module):
         [x2, x1, x0] = features
 
         fpn_out0 = self.lateral_conv0(x0)  # 1024->512/32
-        # f_out0 = self.upsample(fpn_out0)  # 512/16
-        f_out0 = self.upsample_256(fpn_out0)
+        f_out0 = self.upsample(fpn_out0)  # 512/16
         f_out0 = torch.cat([f_out0, x1], 1)  # 512->1024/16
         f_out0 = self.C3_p4(f_out0)  # 1024->512/16
 
         fpn_out1 = self.reduce_conv1(f_out0)  # 512->256/16
-        # f_out1 = self.upsample(fpn_out1)  # 256/8
-        f_out1 = self.upsample_128(fpn_out1)
+        f_out1 = self.upsample(fpn_out1)  # 256/8
         f_out1 = torch.cat([f_out1, x2], 1)  # 256->512/8
         pan_out2 = self.C3_p3(f_out1)  # 512->256/8
 
