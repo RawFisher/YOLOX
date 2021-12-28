@@ -255,7 +255,7 @@ class COCOEvaluator:
                 cocoEval.summarize()
             info += redirect_string.getvalue()
             if self.per_class_mAP:
-                info += "per class mAP:\n" + per_class_mAP_table(cocoEval)
+                info += "per class mAP:\n" + per_class_mAP_table(cocoEval, class_names=tuple([c["name"] for c in self.dataloader.dataset.coco.cats.values()]))
             return cocoEval.stats[0], cocoEval.stats[1], info
         else:
             return 0, 0, info
