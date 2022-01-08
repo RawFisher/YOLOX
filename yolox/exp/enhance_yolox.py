@@ -83,7 +83,7 @@ class EnhanceExp(BaseExp):
         if getattr(self, "model", None) is None:
             in_channels = [256, 512, 1024]
             backbone = EnhancePAFPN(self.depth, self.width, in_channels=in_channels, act=self.act)
-            head_in_channels = [256, 512, 1024, 1024]
+            head_in_channels = [in_channels[0]] * (len(in_channels) + 1)
             head_strides = [8, 16, 32, 64]
             head = YOLOXHead(self.num_classes, self.width, strides=head_strides, in_channels=head_in_channels, act=self.act)
             self.model = EnhanceYOLOX(backbone, head)

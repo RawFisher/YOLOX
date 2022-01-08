@@ -28,27 +28,27 @@ class EnhancePAFPN(nn.Module):
         self.backbone = SDCCSPDarknet(depth, width, depthwise=depthwise, act=act)
         self.in_features = in_features
         self.in_channels = in_channels
+        self.out_channels = self.in_channels[0]
         Conv = DWConv if depthwise else BaseConv
 
         self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
-        self.lateral_conv0 = BaseConv(
-            int(in_channels[2] * width), int(in_channels[1] * width), 1, 1, act=act
-        )
+        self.align_layers = nn.ModuleList()
+        for idx in range(len(in_channels)):
+            self.align_layers.append(
+                Conv(int(in_channels[idx] * width), int(self.out_channels * width), 1, 1, act=act)
+            )
         self.C3_p4 = CSPLayer(
-            int(2 * in_channels[1] * width),
-            int(in_channels[1] * width),
+            int(2 * self.out_channels * width),
+            int(self.out_channels * width),
             round(3 * depth),
             False,
             depthwise=depthwise,
             act=act,
         )  # cat
 
-        self.reduce_conv1 = BaseConv(
-            int(in_channels[1] * width), int(in_channels[0] * width), 1, 1, act=act
-        )
         self.C3_p3 = CSPLayer(
-            int(2 * in_channels[0] * width),
-            int(in_channels[0] * width),
+            int(2 * self.out_channels * width),
+            int(self.out_channels * width),
             round(3 * depth),
             False,
             depthwise=depthwise,
@@ -57,11 +57,11 @@ class EnhancePAFPN(nn.Module):
 
         # bottom-up conv
         self.bu_conv2 = Conv(
-            int(in_channels[0] * width), int(in_channels[0] * width), 3, 2, act=act
+            int(self.out_channels * width), int(self.out_channels * width), 3, 2, act=act
         )
         self.C3_n3 = CSPLayer(
-            int(2 * in_channels[0] * width),
-            int(in_channels[1] * width),
+            int(2 * self.out_channels * width),
+            int(self.out_channels * width),
             round(3 * depth),
             False,
             depthwise=depthwise,
@@ -70,11 +70,11 @@ class EnhancePAFPN(nn.Module):
 
         # bottom-up conv
         self.bu_conv1 = Conv(
-            int(in_channels[1] * width), int(in_channels[1] * width), 3, 2, act=act
+            int(self.out_channels * width), int(self.out_channels * width), 3, 2, act=act
         )
         self.C3_n4 = CSPLayer(
-            int(2 * in_channels[1] * width),
-            int(in_channels[2] * width),
+            int(2 * self.out_channels * width),
+            int(self.out_channels * width),
             round(3 * depth),
             False,
             depthwise=depthwise,
@@ -83,10 +83,10 @@ class EnhancePAFPN(nn.Module):
 
         # extra layers
         self.extra_lvl_in_conv = ExtraConv(
-            int(in_channels[2] * width), int(in_channels[2] * width), 5, 2, act=act
+            int(self.out_channels * width), int(self.out_channels * width), 3, 2, act=act
         )
         self.top_down_blocks = ExtraConv(
-            int(in_channels[2] * width), int(in_channels[2] * width), 5, 2, act=act
+            int(self.out_channels * width), int(self.out_channels * width), 3, 2, act=act
         )
 
     def forward(self, input):
@@ -100,31 +100,29 @@ class EnhancePAFPN(nn.Module):
 
         #  backbone
         out_features = self.backbone(input)
-        features = [out_features[f] for f in self.in_features]
-        [x2, x1, x0] = features
+        features = [align(out_features[f]) for f, align in zip(self.in_features, self.align_layers)]
+        [C3, C4, C5] = features
 
-        fpn_out0 = self.lateral_conv0(x0)  # 1024->512/32
-        f_out0 = self.upsample(fpn_out0)  # 512/16
-        f_out0 = torch.cat([f_out0, x1], 1)  # 512->1024/16
+        f_out0 = self.upsample(C5)  # 512/16
+        f_out0 = torch.cat([f_out0, C4], 1)  # 512->1024/16
         f_out0 = self.C3_p4(f_out0)  # 1024->512/16
 
-        fpn_out1 = self.reduce_conv1(f_out0)  # 512->256/16
-        f_out1 = self.upsample(fpn_out1)  # 256/8
-        f_out1 = torch.cat([f_out1, x2], 1)  # 256->512/8
-        pan_out2 = self.C3_p3(f_out1)  # 512->256/8
+        f_out1 = self.upsample(f_out0)  # 256/8
+        f_out1 = torch.cat([f_out1, C3], 1)  # 256->512/8
+        P3 = self.C3_p3(f_out1)  # 512->256/8
 
-        p_out1 = self.bu_conv2(pan_out2)  # 256->256/16
-        p_out1 = torch.cat([p_out1, fpn_out1], 1)  # 256->512/16
-        pan_out1 = self.C3_n3(p_out1)  # 512->512/16
+        P4 = self.bu_conv2(P3)  # 256->256/16
+        P4 = torch.cat([P4, f_out0], 1)  # 256->512/16
+        P4 = self.C3_n3(P4)  # 512->512/16
 
-        p_out0 = self.bu_conv1(pan_out1)  # 512->512/32
-        p_out0 = torch.cat([p_out0, fpn_out0], 1)  # 512->1024/32
-        pan_out0 = self.C3_n4(p_out0)  # 1024->1024/32
+        P5 = self.bu_conv1(P4)  # 512->512/32
+        P5 = torch.cat([P5, C5], 1)  # 512->1024/32
+        P5 = self.C3_n4(P5)  # 1024->1024/32
 
         # extra layers
-        pan_out3 = self.extra_lvl_in_conv(x0) + self.top_down_blocks(pan_out0)
+        P6 = self.extra_lvl_in_conv(C5) + self.top_down_blocks(P5)
 
-        outputs = (pan_out2, pan_out1, pan_out0, pan_out3)
+        outputs = (P3, P4, P5, P6)
         return outputs
 
 
