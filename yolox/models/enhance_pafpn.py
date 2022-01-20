@@ -88,6 +88,14 @@ class EnhancePAFPN(nn.Module):
         self.top_down_blocks = ExtraConv(
             int(self.out_channels * width), int(self.out_channels * width), 3, 2, act=act
         )
+        self.C3_n5 = CSPLayer(
+            int(2 * self.out_channels * width),
+            int(self.out_channels * width),
+            round(3 * depth),
+            False,
+            depthwise=depthwise,
+            act=act,
+        )
 
     def forward(self, input):
         """
@@ -120,7 +128,8 @@ class EnhancePAFPN(nn.Module):
         P5 = self.C3_n4(P5)  # 1024->1024/32
 
         # extra layers
-        P6 = self.extra_lvl_in_conv(C5) + self.top_down_blocks(P5)
+        P6 = torch.cat([self.extra_lvl_in_conv(C5), self.top_down_blocks(P5)], 1)
+        P6 = self.C3_n5(P6)
 
         outputs = (P3, P4, P5, P6)
         return outputs
