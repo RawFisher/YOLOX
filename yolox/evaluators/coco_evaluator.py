@@ -281,10 +281,11 @@ class COCOEvaluator:
             with contextlib.redirect_stdout(redirect_string):
                 cocoEval.summarize()
             info += redirect_string.getvalue()
+            class_names = tuple([c["name"] for c in self.dataloader.dataset.coco.cats.values()])
             if self.per_class_AP:
-                info += "per class AP:\n" + per_class_AP_table(cocoEval) + "\n"
+                info += "per class AP:\n" + per_class_AP_table(cocoEval, class_names=class_names) + "\n"
             if self.per_class_AR:
-                info += "per class AR:\n" + per_class_AR_table(cocoEval) + "\n"
+                info += "per class AR:\n" + per_class_AR_table(cocoEval, class_names=class_names) + "\n"
             return cocoEval.stats[0], cocoEval.stats[1], info
         else:
             return 0, 0, info
