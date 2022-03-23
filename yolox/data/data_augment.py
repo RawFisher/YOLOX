@@ -167,8 +167,13 @@ class TrainTransform:
     def __call__(self, image, targets, input_dim):
         boxes = targets[:, :4].copy()
         labels = targets[:, 4].copy()
+        if targets.shape[1] >= 6:
+            ids = targets[:, 5].copy()
         if len(boxes) == 0:
-            targets = np.zeros((self.max_labels, 5), dtype=np.float32)
+            if targets.shape[1] >= 6:
+                targets = np.zeros((self.max_labels, 6), dtype=np.float32)
+            else:
+                targets = np.zeros((self.max_labels, 5), dtype=np.float32)
             image, r_o = preproc(image, input_dim)
             return image, targets
 
@@ -177,6 +182,8 @@ class TrainTransform:
         height_o, width_o, _ = image_o.shape
         boxes_o = targets_o[:, :4]
         labels_o = targets_o[:, 4]
+        if targets.shape[1] >= 6:
+            ids_o = targets_o[:, 5]
         # bbox_o: [xyxy] to [c_x,c_y,w,h]
         boxes_o = xyxy2cxcywh(boxes_o)
 
@@ -192,17 +199,29 @@ class TrainTransform:
         mask_b = np.minimum(boxes[:, 2], boxes[:, 3]) > 1
         boxes_t = boxes[mask_b]
         labels_t = labels[mask_b]
+        if targets.shape[1] >= 6:
+            ids_t = ids[mask_b]
 
         if len(boxes_t) == 0:
             image_t, r_o = preproc(image_o, input_dim)
             boxes_o *= r_o
             boxes_t = boxes_o
             labels_t = labels_o
+            if targets.shape[1] >= 6:
+                ids_t = ids_o
 
         labels_t = np.expand_dims(labels_t, 1)
+        if targets.shape[1] >= 6:
+            ids_t = np.expand_dims(ids_t, 1)
 
-        targets_t = np.hstack((labels_t, boxes_t))
-        padded_labels = np.zeros((self.max_labels, 5))
+        if targets.shape[1] >= 6:
+            targets_t = np.hstack((labels_t, boxes_t, ids_t))
+        else:
+            targets_t = np.hstack((labels_t, boxes_t))
+        if targets.shape[1] >= 6:
+            padded_labels = np.zeros((self.max_labels, 6))
+        else:
+            padded_labels = np.zeros((self.max_labels, 5))
         padded_labels[range(len(targets_t))[: self.max_labels]] = targets_t[
             : self.max_labels
         ]

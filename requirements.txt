@@ -11,6 +11,10 @@ thop
 ninja
 tabulate
 tensorboard
+lap
+motmetrics
+filterpy
+h5py
 
 # verified versions
 # pycocotools corresponds to https://github.com/ppwwyyxx/cocoapi
