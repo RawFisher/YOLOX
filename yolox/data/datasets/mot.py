@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 from pycocotools.coco import COCO
+from loguru import logger
 
 import os
 
@@ -45,6 +46,14 @@ class MOTDataset(Dataset):
         self.name = name
         self.img_size = img_size
         self.preproc = preproc
+
+        self.nID = 0
+        for anno in self.annotations:
+            res = anno[0]
+            for i in range(res.shape[0]):
+                self.nID = max((self.nID, res[i][5]))
+        self.nID = int(self.nID) + 1
+        logger.info("total identities: {}".format(self.nID))
 
     def __len__(self):
         return len(self.ids)

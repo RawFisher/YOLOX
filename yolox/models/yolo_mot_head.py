@@ -55,7 +55,7 @@ class FeatureFusor(nn.Module):
 
     # all of channels are 256
 
-    def __init__(self, in_channels, width, reid_feat_dim):
+    def __init__(self, in_channel, reid_feat_dim):
         super(FeatureFusor, self).__init__()
 
         # Upsample Layers
@@ -65,10 +65,19 @@ class FeatureFusor(nn.Module):
         self.p3_upsample = nn.Upsample(scale_factor=2, mode='nearest')
 
         # Downchannel Layers with DCN
-        self.p6_deform_conv_2 = Bottleneck(int(in_channels[3] * width), reid_feat_dim)
-        self.p5_deform_conv_2 = Bottleneck(int(in_channels[2] * width), reid_feat_dim)
-        self.p4_deform_conv_2 = Bottleneck(int(in_channels[1] * width), reid_feat_dim)
-        self.p3_deform_conv_2 = Bottleneck(int(in_channels[0] * width), reid_feat_dim)
+        self.p6_deform_conv_2 = Bottleneck(in_channel, reid_feat_dim)
+        self.p5_deform_conv_2 = Bottleneck(in_channel, reid_feat_dim)
+        self.p4_deform_conv_2 = Bottleneck(in_channel, reid_feat_dim)
+        self.p3_deform_conv_2 = Bottleneck(in_channel, reid_feat_dim)
+
+        # change channels
+        self.stems = BaseConv(
+            in_channels=in_channel,
+            out_channels=reid_feat_dim,
+            ksize=1,
+            stride=1,
+            act="relu",
+        )
 
     def forward(self, inputs):
         p3, p4, p5, p6 = inputs
@@ -76,7 +85,7 @@ class FeatureFusor(nn.Module):
         p4 = self.p5_upsample(self.p5_deform_conv_2(p5)) + p4
         p3 = self.p4_upsample(self.p4_deform_conv_2(p4)) + p3
         p2 = self.p3_upsample(self.p3_deform_conv_2(p3))
-        return p2
+        return self.stems(p2)
 
 
 class YOLOXMOTHead(nn.Module):
@@ -189,15 +198,8 @@ class YOLOXMOTHead(nn.Module):
             )
 
         # ReID Branch
-        self.feature_fuse = FeatureFusor(in_channels,
-                                         width,
-                                         self.reid_dim)
-        self.reid_stem = BaseConv(in_channels=int(in_channels[0] * width),
-                                  out_channels=int(self.reid_dim * width),
-                                  ksize=1,
-                                  stride=1,
-                                  act=act,)
-        self.fc = nn.Linear(self.reid_dim, 10000)
+        self.feature_fuse = FeatureFusor(int(in_channels[0]*width), int(self.reid_dim*width))
+        self.fc = nn.Linear(int(self.reid_dim*width), 10000)
         self.reid_loss = nn.CrossEntropyLoss()
         self.s_det = 1.40
         self.s_id  = -1.50
