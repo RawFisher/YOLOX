@@ -171,6 +171,8 @@ class COCOEvaluator:
                     start = time.time()
 
                 outputs = model(imgs)
+                if isinstance(outputs, tuple):
+                    outputs = outputs[0]
                 if decoder is not None:
                     outputs = decoder(outputs, dtype=outputs.type())
 

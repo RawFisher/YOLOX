@@ -175,7 +175,7 @@ class MOTEvaluator:
                 if is_time_record:
                     start = time.time()
 
-                outputs = model(imgs)
+                outputs, reid_features = model(imgs)
                 if decoder is not None:
                     outputs = decoder(outputs, dtype=outputs.type())
 

@@ -168,7 +168,7 @@ class Predictor(object):
 
         with torch.no_grad():
             timer.tic()
-            outputs = self.model(img)
+            outputs, reid_features = self.model(img)
             if self.decoder is not None:
                 outputs = self.decoder(outputs, dtype=outputs.type())
             outputs = postprocess(
